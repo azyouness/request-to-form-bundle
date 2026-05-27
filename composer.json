@@ -1,0 +1,54 @@
+{
+  "name": "azyouness/request-to-form-bundle",
+  "type": "symfony-bundle",
+  "description": "Map HTTP request payloads to Symfony forms from controller attributes or a reusable mapper service.",
+  "license": "MIT",
+  "keywords": [
+    "symfony",
+    "bundle",
+    "form",
+    "request",
+    "attribute",
+    "controller",
+    "api"
+  ],
+  "homepage": "https://github.com/azyouness/request-to-form-bundle",
+  "authors": [
+    {
+      "name": "Aznag Youness",
+      "homepage": "https://github.com/azyouness"
+    }
+  ],
+  "require": {
+    "php": ">=8.2",
+    "symfony/dependency-injection": "^7.4 || ^8.0",
+    "symfony/event-dispatcher": "^7.4 || ^8.0",
+    "symfony/form": "^7.4 || ^8.0",
+    "symfony/framework-bundle": "^7.4 || ^8.0",
+    "symfony/http-foundation": "^7.4 || ^8.0",
+    "symfony/http-kernel": "^7.4 || ^8.0",
+    "symfony/options-resolver": "^7.4 || ^8.0"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.95",
+    "phpunit/phpunit": "^11.5 || ^12.0",
+    "symfony/validator": "^7.4 || ^8.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "AzYouness\\RequestToFormBundle\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "AzYouness\\RequestToFormBundle\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "scripts": {
+    "test": "php vendor/bin/phpunit",
+    "fix-cs": "php vendor/bin/php-cs-fixer fix"
+  }
+}
