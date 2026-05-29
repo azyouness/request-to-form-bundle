@@ -6,6 +6,7 @@ use AzYouness\RequestToFormBundle\Exception\FormValidationFailedException;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\FormTypeInterface;
+use Symfony\Component\Form\Util\FormUtil;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,11 +15,11 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\UnsupportedMediaTypeHttpException;
 
 /**
- * Submits the current HTTP request payload to a Symfony form.
+ * Submits an HTTP request payload to a Symfony form.
  *
- * This service keeps form handling reusable outside controllers. The attribute
- * resolver also delegates to it, so request decoding, clear-missing behavior,
- * and validation failure handling stay consistent in both usage styles.
+ * This service keeps form handling reusable outside controller attributes.
+ * The #[MapRequestToForm] listener also delegates to it, so request decoding,
+ * clear-missing behavior, and validation failure handling stay consistent.
  */
 final readonly class RequestToFormMapper
 {
@@ -143,26 +144,58 @@ final readonly class RequestToFormMapper
         $clearMissing ??= 'PATCH' !== $request->getMethod();
 
         if ('json' === $format) {
-            try {
-                // Do not use Request::toArray(): it rejects valid scalar JSON,
-                // while root forms may submit scalar values such as a TextType string.
-                $payload = json_decode($request->getContent(), true, flags: \JSON_THROW_ON_ERROR);
-            } catch (\JsonException $exception) {
-                throw new BadRequestHttpException('Request payload contains invalid "json" data.', $exception);
-            }
-
-            $form->submit($payload, $clearMissing);
+            $form->submit($this->resolveJsonPayload($request), $clearMissing);
 
             return;
         }
 
         if ('form' === $format) {
-            $form->submit($request->request->all() + $request->files->all(), $clearMissing);
+            $form->submit($this->resolveFormPayload($form, $request), $clearMissing);
 
             return;
         }
 
         throw new UnsupportedMediaTypeHttpException('Unsupported format.');
+    }
+
+    private function resolveJsonPayload(Request $request): mixed
+    {
+        try {
+            // Do not use Request::toArray(): it rejects valid scalar JSON,
+            // while root forms may submit scalar values such as a TextType string.
+            return json_decode($request->getContent(), true, flags: \JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new BadRequestHttpException('Request payload contains invalid "json" data.', $exception);
+        }
+    }
+
+    /**
+     * Mirrors the relevant part of Symfony's HttpFoundationRequestHandler.
+     *
+     * We cannot call FormInterface::handleRequest() directly because this mapper
+     * must control the $clearMissing argument passed to FormInterface::submit().
+     */
+    private function resolveFormPayload(FormInterface $form, Request $request): mixed
+    {
+        $params = $request->request->all();
+        $files = $request->files->all();
+        $name = $form->getName();
+
+        // Support payloads grouped under the form name, e.g. post[title].
+        $isNamedForm = '' !== $name;
+        $requestContainsFormName = array_key_exists($name, $params) || array_key_exists($name, $files);
+
+        if ($isNamedForm && $requestContainsFormName) {
+            $default = $form->getConfig()->getCompound() ? [] : null;
+            $params = $params[$name] ?? $default;
+            $files = $files[$name] ?? $default;
+        }
+
+        if (is_array($params) && is_array($files)) {
+            return FormUtil::mergeParamsAndFiles($params, $files);
+        }
+
+        return $params ?: $files;
     }
 
     /**

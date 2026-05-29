@@ -10,12 +10,15 @@ use AzYouness\RequestToFormBundle\RequestToFormMapper;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\HttpFoundation\HttpFoundationExtension;
 use Symfony\Component\Form\Extension\Validator\ValidatorExtension;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormRegistryInterface;
 use Symfony\Component\Form\Forms;
 use Symfony\Component\Form\ResolvedFormTypeInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -67,6 +70,24 @@ final class RequestToFormMapperTest extends TestCase
 
         $this->assertInstanceOf(MapperTestProduct::class, $product);
         $this->assertSame('Form product', $product->getName());
+    }
+
+    #[Test]
+    public function handlesNamedFormPayloadWithUploadedFiles(): void
+    {
+        $uploadedFile = $this->createUploadedFile();
+        $request = new Request(
+            request: ['profile' => ['title' => 'Named form']],
+            files: ['profile' => ['upload' => $uploadedFile]],
+            server: ['CONTENT_TYPE' => 'multipart/form-data', 'REQUEST_METHOD' => 'POST']
+        );
+
+        $form = $this->createMapper()->handle($request, MapperUploadType::class);
+        $data = $form->getData();
+
+        $this->assertInstanceOf(MapperUploadData::class, $data);
+        $this->assertSame('Named form', $data->getTitle());
+        $this->assertSame($uploadedFile, $data->getUpload());
     }
 
     #[Test]
@@ -202,6 +223,8 @@ final class RequestToFormMapperTest extends TestCase
         $formFactory = Forms::createFormFactoryBuilder()
             ->addType(new MapperTestProductType())
             ->addType(new MapperValidatedProductType())
+            ->addType(new MapperUploadType())
+            ->addExtension(new HttpFoundationExtension())
             ->addExtension(new ValidatorExtension(Validation::createValidator()))
             ->getFormFactory();
 
@@ -229,11 +252,25 @@ final class RequestToFormMapperTest extends TestCase
                 fn (string $formType): ResolvedFormTypeInterface => $this->createResolvedFormType(match ($formType) {
                     MapperTestProductType::class => MapperTestProduct::class,
                     MapperValidatedProductType::class => MapperValidatedProduct::class,
+                    MapperUploadType::class => MapperUploadData::class,
                     default => null,
                 })
             );
 
-        return new DataClassFormTypeResolver([new MapperTestProductType(), new MapperValidatedProductType()], $formRegistry);
+        return new DataClassFormTypeResolver([new MapperTestProductType(), new MapperValidatedProductType(), new MapperUploadType()], $formRegistry);
+    }
+
+    private function createUploadedFile(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'request-to-form-upload-');
+        file_put_contents($path, 'upload content');
+        register_shutdown_function(static function () use ($path): void {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        });
+
+        return new UploadedFile($path, 'upload.txt', 'text/plain', null, true);
     }
 
     /**
@@ -284,6 +321,33 @@ final class MapperValidatedProduct
     }
 }
 
+final class MapperUploadData
+{
+    private ?string $title = null;
+
+    private ?UploadedFile $upload = null;
+
+    public function getTitle(): ?string
+    {
+        return $this->title;
+    }
+
+    public function setTitle(?string $title): void
+    {
+        $this->title = $title;
+    }
+
+    public function getUpload(): ?UploadedFile
+    {
+        return $this->upload;
+    }
+
+    public function setUpload(?UploadedFile $upload): void
+    {
+        $this->upload = $upload;
+    }
+}
+
 final class MapperTestProductType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
@@ -309,5 +373,28 @@ final class MapperValidatedProductType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefault('data_class', MapperValidatedProduct::class);
+    }
+}
+
+final class MapperUploadType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options): void
+    {
+        $builder
+            ->add('title', TextType::class)
+            ->add('upload', FileType::class, [
+                'required' => false,
+            ])
+        ;
+    }
+
+    public function configureOptions(OptionsResolver $resolver): void
+    {
+        $resolver->setDefault('data_class', MapperUploadData::class);
+    }
+
+    public function getBlockPrefix(): string
+    {
+        return 'profile';
     }
 }

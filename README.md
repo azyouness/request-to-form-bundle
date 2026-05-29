@@ -86,7 +86,7 @@ public function create(
 
 When another Symfony resolver has already resolved the controller argument, the bundle submits the request into that object.
 
-This is useful when updating existing data:
+This is useful when submitting the request into existing data:
 
 ```php
 use App\Entity\Post;
@@ -101,6 +101,27 @@ public function update(
 ): JsonResponse {
     // $post is first resolved from the {id} route parameter by Symfony's EntityValueResolver,
     // then submitted to the form with the current request data.
+
+    return $this->json($post);
+}
+```
+
+`MapRequestToForm` can also be combined with other argument attributes, such as Doctrine's `MapEntity`:
+
+```php
+use App\Entity\Post;
+use AzYouness\RequestToFormBundle\Attribute\MapRequestToForm;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\Routing\Attribute\Route;
+
+#[Route('/posts/{slug}', methods: ['PUT'])]
+public function update(
+    #[MapRequestToForm]
+    #[MapEntity(mapping: ['slug' => 'slug'])]
+    Post $post,
+): JsonResponse {
+    // $post is resolved by MapEntity, then submitted through the form.
 
     return $this->json($post);
 }
