@@ -31,6 +31,9 @@
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.95",
+    "phpstan/phpstan": "^2.2",
+    "phpstan/phpstan-phpunit": "^2.0",
+    "phpstan/phpstan-symfony": "^2.0",
     "phpunit/phpunit": "^11.5 || ^12.0",
     "symfony/validator": "^7.4 || ^8.0"
   },
@@ -49,6 +52,7 @@
   },
   "scripts": {
     "test": "php vendor/bin/phpunit",
+    "analyse": "php vendor/bin/phpstan analyse --memory-limit=1G",
     "fix-cs": "php vendor/bin/php-cs-fixer fix"
   }
 }
