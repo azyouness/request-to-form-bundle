@@ -148,6 +148,9 @@ final readonly class RequestToFormArgumentListener
         );
     }
 
+    /**
+     * @param FormInterface<mixed> $form
+     */
     private function resolveArgumentValueFromForm(
         FormInterface $form,
         \ReflectionNamedType $argumentType,

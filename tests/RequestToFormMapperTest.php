@@ -348,6 +348,9 @@ final class MapperUploadData
     }
 }
 
+/**
+ * @extends AbstractType<MapperTestProduct>
+ */
 final class MapperTestProductType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
@@ -361,6 +364,9 @@ final class MapperTestProductType extends AbstractType
     }
 }
 
+/**
+ * @extends AbstractType<MapperValidatedProduct>
+ */
 final class MapperValidatedProductType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
@@ -376,6 +382,9 @@ final class MapperValidatedProductType extends AbstractType
     }
 }
 
+/**
+ * @extends AbstractType<MapperUploadData>
+ */
 final class MapperUploadType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void

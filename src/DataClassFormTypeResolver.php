@@ -9,25 +9,23 @@ use Symfony\Component\Form\FormTypeInterface;
 use Symfony\Component\OptionsResolver\Exception\ExceptionInterface as OptionsResolverExceptionInterface;
 
 /**
- * Resolves the relation between Symfony form types and their data_class.
+ * Resolves the relation between Symfony form types and their data_class option.
  *
  * It can infer the unique form type for a data class and inspect the data_class
- * configured by a form type. The form registry is used so inherited options and
- * form type extensions are included.
+ * configured by a form type.
  */
 final class DataClassFormTypeResolver
 {
     /**
-     * @var array<class-string, list<class-string>>|null
+     * @var array<class-string, list<class-string<FormTypeInterface<mixed>>>>|null
      */
     private ?array $formTypesByDataClass = null;
 
     /**
-     * @param iterable<FormTypeInterface> $formTypes
+     * @param iterable<FormTypeInterface<mixed>> $formTypes
      */
     public function __construct(
-        // Symfony injects this as a lazy iterable; form type services are created
-        // only when the map is built for the first time.
+        // Lazy iterable; form type services are instantiated only when the index is built.
         #[AutowireIterator('form.type')]
         private readonly iterable $formTypes,
         private readonly FormRegistryInterface $formRegistry,
@@ -35,13 +33,14 @@ final class DataClassFormTypeResolver
     }
 
     /**
-     * @param class-string $dataClass
-     *
-     * @return class-string
+     * @return class-string<FormTypeInterface<mixed>>
      */
     public function resolveFormType(string $dataClass): string
     {
-        $this->assertDataClassExists($dataClass);
+        if (!class_exists($dataClass)) {
+            throw new \LogicException(sprintf('Data class "%s" does not exist.', $dataClass));
+        }
+
         $matches = $this->findFormTypesForDataClass($dataClass);
 
         if (1 === count($matches)) {
@@ -56,15 +55,18 @@ final class DataClassFormTypeResolver
     }
 
     /**
-     * @param class-string $formTypeClass
+     * Returns null when the form type has no inspectable data_class.
+     *
+     * This keeps automatic inference tolerant of scalar forms, array forms, or
+     * form types that depend on extra options.
      *
      * @return class-string|null
      */
     public function resolveDataClass(string $formTypeClass): ?string
     {
         try {
-            // Use the registry to inspect Symfony's resolved type, including
-            // inherited options and form type extensions.
+            // Use the registry instead of instantiating the form type directly so options
+            // are resolved with parent types and form type extensions.
             $options = $this->formRegistry->getType($formTypeClass)->getOptionsResolver()->resolve([]);
         } catch (FormExceptionInterface|OptionsResolverExceptionInterface) {
             return null;
@@ -72,13 +74,15 @@ final class DataClassFormTypeResolver
 
         $dataClass = $options['data_class'] ?? null;
 
-        return is_string($dataClass) && '' !== $dataClass ? $dataClass : null;
+        if (!is_string($dataClass) || '' === $dataClass || !class_exists($dataClass)) {
+            return null;
+        }
+
+        return $dataClass;
     }
 
     /**
-     * @param class-string $dataClass
-     *
-     * @return list<class-string>
+     * @return list<class-string<FormTypeInterface<mixed>>>
      */
     private function findFormTypesForDataClass(string $dataClass): array
     {
@@ -86,7 +90,7 @@ final class DataClassFormTypeResolver
     }
 
     /**
-     * @return array<class-string, list<class-string>>
+     * @return array<class-string, list<class-string<FormTypeInterface<mixed>>>>
      */
     private function getFormTypesIndexedByDataClass(): array
     {
@@ -112,12 +116,5 @@ final class DataClassFormTypeResolver
         }
 
         return $this->formTypesByDataClass;
-    }
-
-    private function assertDataClassExists(string $dataClass): void
-    {
-        if (!class_exists($dataClass)) {
-            throw new \LogicException(sprintf('Data class "%s" does not exist.', $dataClass));
-        }
     }
 }

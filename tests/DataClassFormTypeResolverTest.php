@@ -82,7 +82,7 @@ final class DataClassFormTypeResolverTest extends TestCase
     }
 
     /**
-     * @param array<class-string<FormTypeInterface>, class-string|null> $formTypeDataClasses
+     * @param array<class-string<FormTypeInterface<mixed>>, class-string|null> $formTypeDataClasses
      */
     private function createResolver(array $formTypeDataClasses): DataClassFormTypeResolver
     {
@@ -123,14 +123,23 @@ final class TestProduct
 {
 }
 
+/**
+ * @extends AbstractType<TestProduct>
+ */
 final class TestProductType extends AbstractType
 {
 }
 
+/**
+ * @extends AbstractType<TestProduct>
+ */
 final class TestDuplicateProductType extends AbstractType
 {
 }
 
+/**
+ * @extends AbstractType<mixed>
+ */
 final class TestFormWithoutDataClassType extends AbstractType
 {
 }

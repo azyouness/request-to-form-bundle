@@ -24,6 +24,9 @@ final readonly class RequestToFormValueResolver implements ValueResolverInterfac
     ) {
     }
 
+    /**
+     * @return iterable<mixed>
+     */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
         $attribute = $argument->getAttributesOfType(MapRequestToForm::class, ArgumentMetadata::IS_INSTANCEOF)[0] ?? null;

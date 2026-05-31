@@ -92,6 +92,9 @@ final class ArgumentTypeMatcherTest extends TestCase
         return $type;
     }
 
+    /**
+     * @return array<string, array{string, bool}>
+     */
     public static function builtInTypeProvider(): array
     {
         return [

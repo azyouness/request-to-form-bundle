@@ -33,9 +33,10 @@ final readonly class RequestToFormMapper
     }
 
     /**
-     * @param class-string              $formType
      * @param array<string, mixed>      $formOptions
      * @param array<string>|string|null $acceptFormat
+     *
+     * @return FormInterface<mixed>
      */
     public function handle(
         Request $request,
@@ -63,9 +64,10 @@ final readonly class RequestToFormMapper
     }
 
     /**
-     * @param class-string|null         $formType
      * @param array<string, mixed>      $formOptions
      * @param array<string>|string|null $acceptFormat
+     *
+     * @return FormInterface<mixed>
      */
     public function handleCurrentRequest(
         mixed $data = null,
@@ -135,6 +137,9 @@ final readonly class RequestToFormMapper
         return $format;
     }
 
+    /**
+     * @param FormInterface<mixed> $form
+     */
     private function submitRequest(
         FormInterface $form,
         Request $request,
@@ -174,6 +179,8 @@ final readonly class RequestToFormMapper
      *
      * We cannot call FormInterface::handleRequest() directly because this mapper
      * must control the $clearMissing argument passed to FormInterface::submit().
+     *
+     * @param FormInterface<mixed> $form
      */
     private function resolveFormPayload(FormInterface $form, Request $request): mixed
     {
@@ -199,7 +206,7 @@ final readonly class RequestToFormMapper
     }
 
     /**
-     * @param class-string $formType
+     * @phpstan-assert class-string<FormTypeInterface<mixed>> $formType
      */
     private function assertValidFormType(string $formType): void
     {
@@ -210,6 +217,9 @@ final readonly class RequestToFormMapper
         throw new \LogicException(sprintf('Form type "%s" must be a valid Symfony form type class.', $formType));
     }
 
+    /**
+     * @return class-string<FormTypeInterface<mixed>>
+     */
     private function resolveFormType(mixed $data): string
     {
         if (!is_object($data)) {

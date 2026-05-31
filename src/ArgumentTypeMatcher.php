@@ -41,7 +41,7 @@ final readonly class ArgumentTypeMatcher
 
         return match ($typeName) {
             'mixed' => true,
-            'null' => null === $value,
+            'null' => false,
             'bool' => is_bool($value),
             'int' => is_int($value),
             'float' => is_float($value),

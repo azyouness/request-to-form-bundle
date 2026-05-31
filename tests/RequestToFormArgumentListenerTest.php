@@ -191,6 +191,9 @@ final class RequestToFormArgumentListenerTest extends TestCase
         );
     }
 
+    /**
+     * @param array<int, mixed> $arguments
+     */
     private function createControllerArgumentsEvent(
         callable $controller,
         array $arguments,
@@ -258,6 +261,9 @@ final class ListenerTestRequestFormController
     {
     }
 
+    /**
+     * @param FormInterface<ListenerTestProduct> $form
+     */
     public function editForm(
         ListenerTestProduct $product,
         #[MapRequestToForm(dataArgument: 'product')]
@@ -271,12 +277,18 @@ final class ListenerTestRequestFormController
     ): void {
     }
 
+    /**
+     * @param FormInterface<ListenerTestProduct> $form
+     */
     public function missingDataArgument(
         #[MapRequestToForm(dataArgument: 'product')]
         FormInterface $form,
     ): void {
     }
 
+    /**
+     * @param FormInterface<ListenerTestProduct> $form
+     */
     public function unresolvedDataArgument(
         #[MapRequestToForm(dataArgument: 'product')]
         FormInterface $form,
@@ -321,6 +333,9 @@ final class ListenerTestOtherProduct
 {
 }
 
+/**
+ * @extends AbstractType<ListenerTestProduct>
+ */
 final class ListenerTestProductType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
@@ -334,6 +349,9 @@ final class ListenerTestProductType extends AbstractType
     }
 }
 
+/**
+ * @extends AbstractType<ListenerTestOtherProduct>
+ */
 final class ListenerTestOtherProductType extends AbstractType
 {
     public function configureOptions(OptionsResolver $resolver): void
