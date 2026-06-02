@@ -2,28 +2,31 @@
 
 Request To Form Bundle submits the current Symfony request to a Symfony Form directly from a controller argument.
 
-Symfony already provides attributes such as `#[MapRequestPayload]` to map request data into typed objects like DTOs. This bundle provides a similar controller experience for applications that use Symfony Forms as the request contract.
+Symfony already provides attributes such as `#[MapRequestPayload]` to map request data into typed objects like DTOs. This bundle provides a similar controller experience for applications that use Symfony Forms to submit and validate request data.
 
-With `#[MapRequestToForm]`, the request payload is submitted to a form. If the form is valid, the controller receives the mapped form data or the submitted form itself.
+With `#[MapRequestToForm]`, the request payload is submitted to a form. If the form is valid, the controller receives the mapped form data or the submitted form itself. If the form is invalid, an exception is thrown before the controller is called.
 
 ```php
 use App\Entity\Post;
 use AzYouness\RequestToFormBundle\Attribute\MapRequestToForm;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
+use Doctrine\ORM\EntityManagerInterface;
 
 #[Route('/posts', methods: ['POST'])]
 public function create(
     #[MapRequestToForm]
     Post $post,
+    EntityManagerInterface $entityManager,
 ): JsonResponse {
-    $this->blogApplicationService->create($post);
+    $entityManager->persist($post);
+    $entityManager->flush();
 
-    return $this->json($this->transformer->toDetail($post));
+    return $this->json($post);
 }
 ```
 
-Here, `$post` is already the submitted and validated form data. The controller does not need to decode the request, create the form, submit it, check validity, or extract the data manually. If the form is invalid, an exception is thrown before the controller is called.
+Here, `$post` is already the submitted and validated form data. The controller does not need to decode the request, create the form, submit it, check validity, or extract the data manually.
 
 ## Requirements
 
@@ -77,6 +80,19 @@ use App\Form\PostType;
 public function create(
     #[MapRequestToForm(formType: PostType::class)]
     Post $post,
+): JsonResponse {
+    // ...
+}
+```
+
+Automatic inference works when the form type exposes a `data_class` that can be inspected. If your form type needs runtime options, pass `formType` explicitly and provide `formOptions`, or use the `RequestToFormMapper` service.
+
+If the form can return `null` data, the controller argument should be nullable:
+
+```php
+public function create(
+    #[MapRequestToForm]
+    ?Post $post,
 ): JsonResponse {
     // ...
 }
@@ -214,7 +230,7 @@ Limit an action to JSON only:
 #[MapRequestToForm(acceptFormat: 'json')]
 ```
 
-## Options Reference
+## Options
 
 ```php
 #[MapRequestToForm(
@@ -229,17 +245,16 @@ Limit an action to JSON only:
 
 The same options are available on the mapper service where they make sense.
 
-| Option                       | Attribute                           | `handle()` | `handleCurrentRequest()`            | Description                                                                                            |
-| ---------------------------- | ----------------------------------- | ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `request`                    | current controller request          | required   | current request from `RequestStack` | Request submitted to the form.                                                                         |
-| `formType`                   | optional                            | required   | optional                            | Symfony form type class. Optional when it can be inferred from the data class.                         |
-| `data`                       | resolved argument or `dataArgument` | optional   | optional                            | Initial form data. Use it to submit into an existing object.                                           |
-| `dataArgument`               | supported                           | no         | no                                  | Name of another controller argument to use as the form data.                                           |
-| `formOptions`                | supported                           | supported  | supported                           | Options passed to `FormFactoryInterface::create()`.                                                    |
-| `clearMissing`               | supported                           | supported  | supported                           | Value passed to `FormInterface::submit()`. If omitted, `PATCH` uses `false`; other methods use `true`. |
-| `acceptFormat`               | supported                           | supported  | supported                           | Accepted request formats. Supported values are `json` and `form`.                                      |
-| `throwOnInvalid`             | always enabled                      | supported  | supported                           | Set to `false` with the mapper to receive an invalid form instead of throwing.                         |
-| `validationFailedStatusCode` | supported                           | supported  | supported                           | HTTP status code used when validation fails. Default is `422`.                                         |
+| Option | Available On | Description |
+| --- | --- | --- |
+| `formType` | attribute, mapper | Symfony form type class. Required when it cannot be inferred. |
+| `dataArgument` | attribute | Name of another controller argument to use as the form data. |
+| `data` | mapper | Initial form data. Use it to submit into an existing object. |
+| `formOptions` | attribute, mapper | Options passed to `FormFactoryInterface::create()`. |
+| `clearMissing` | attribute, mapper | Value passed to `FormInterface::submit()`. Defaults to `false` for `PATCH`, `true` otherwise. |
+| `acceptFormat` | attribute, mapper | Accepted request formats: `json`, `form`, or both. |
+| `throwOnInvalid` | mapper | Set to `false` to receive an invalid form instead of throwing. |
+| `validationFailedStatusCode` | attribute, mapper | HTTP status code used when validation fails. Default is `422`. |
 
 ## Mapper Service
 
