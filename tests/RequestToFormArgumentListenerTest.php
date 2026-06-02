@@ -163,6 +163,35 @@ final class RequestToFormArgumentListenerTest extends TestCase
     }
 
     #[Test]
+    public function mapsNullFormDataToNullableArgument(): void
+    {
+        $event = $this->createControllerArgumentsEvent(
+            controller: [new ListenerTestRequestFormController(), 'nullableProduct'],
+            arguments: [new PendingRequestToFormArgument()],
+            content: '{}'
+        );
+
+        $this->createListener()($event);
+
+        $this->assertNull($event->getArguments()[0]);
+    }
+
+    #[Test]
+    public function throwsWhenNullFormDataIsMappedToNonNullableArgument(): void
+    {
+        $event = $this->createControllerArgumentsEvent(
+            controller: [new ListenerTestRequestFormController(), 'nonNullableProductWithNullData'],
+            arguments: [new PendingRequestToFormArgument()],
+            content: '{}'
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('must be of type "AzYouness\RequestToFormBundle\Tests\ListenerTestNullableProduct", "null" given.');
+
+        $this->createListener()($event);
+    }
+
+    #[Test]
     public function throwsWhenMappedArgumentIsVariadic(): void
     {
         $event = $this->createControllerArgumentsEvent(
@@ -182,6 +211,7 @@ final class RequestToFormArgumentListenerTest extends TestCase
         $formFactory = Forms::createFormFactoryBuilder()
             ->addType(new ListenerTestProductType())
             ->addType(new ListenerTestOtherProductType())
+            ->addType(new ListenerTestNullableProductType())
             ->getFormFactory();
 
         return new RequestToFormArgumentListener(
@@ -218,6 +248,7 @@ final class RequestToFormArgumentListenerTest extends TestCase
         $formTypeDataClasses = [
             ListenerTestProductType::class => ListenerTestProduct::class,
             ListenerTestOtherProductType::class => ListenerTestOtherProduct::class,
+            ListenerTestNullableProductType::class => ListenerTestNullableProduct::class,
         ];
 
         $formRegistry = $this->createStub(FormRegistryInterface::class);
@@ -228,7 +259,10 @@ final class RequestToFormArgumentListenerTest extends TestCase
             );
 
         return new DataClassFormTypeResolver(
-            [new ListenerTestProductType(), new ListenerTestOtherProductType()],
+            array_map(
+                static fn (string $formType) => new $formType(),
+                array_keys($formTypeDataClasses)
+            ),
             $formRegistry
         );
     }
@@ -253,12 +287,16 @@ final class RequestToFormArgumentListenerTest extends TestCase
 
 final class ListenerTestRequestFormController
 {
-    public function createProduct(#[MapRequestToForm] ListenerTestProduct $product): void
-    {
+    public function createProduct(
+        #[MapRequestToForm]
+        ListenerTestProduct $product,
+    ): void {
     }
 
-    public function editProduct(#[MapRequestToForm] ListenerTestProduct $product): void
-    {
+    public function editProduct(
+        #[MapRequestToForm]
+        ListenerTestProduct $product,
+    ): void {
     }
 
     /**
@@ -309,6 +347,18 @@ final class ListenerTestRequestFormController
     ): void {
     }
 
+    public function nullableProduct(
+        #[MapRequestToForm]
+        ?ListenerTestNullableProduct $product,
+    ): void {
+    }
+
+    public function nonNullableProductWithNullData(
+        #[MapRequestToForm]
+        ListenerTestNullableProduct $product,
+    ): void {
+    }
+
     public function variadic(#[MapRequestToForm] ListenerTestProduct ...$products): void
     {
     }
@@ -330,6 +380,10 @@ final class ListenerTestProduct
 }
 
 final class ListenerTestOtherProduct
+{
+}
+
+final class ListenerTestNullableProduct
 {
 }
 
@@ -357,5 +411,17 @@ final class ListenerTestOtherProductType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefault('data_class', ListenerTestOtherProduct::class);
+    }
+}
+
+/**
+ * @extends AbstractType<ListenerTestNullableProduct>
+ */
+final class ListenerTestNullableProductType extends AbstractType
+{
+    public function configureOptions(OptionsResolver $resolver): void
+    {
+        $resolver->setDefault('data_class', ListenerTestNullableProduct::class);
+        $resolver->setDefault('empty_data', static fn (): null => null);
     }
 }
