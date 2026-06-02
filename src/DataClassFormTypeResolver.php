@@ -6,6 +6,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Form\Exception\ExceptionInterface as FormExceptionInterface;
 use Symfony\Component\Form\FormRegistryInterface;
 use Symfony\Component\Form\FormTypeInterface;
+use Symfony\Component\OptionsResolver\Debug\OptionsResolverIntrospector;
 use Symfony\Component\OptionsResolver\Exception\ExceptionInterface as OptionsResolverExceptionInterface;
 
 /**
@@ -55,24 +56,27 @@ final class DataClassFormTypeResolver
     }
 
     /**
-     * Returns null when the form type has no inspectable data_class.
+     * Returns the configured data_class when it can be inspected.
      *
-     * This keeps automatic inference tolerant of scalar forms, array forms, or
-     * form types that depend on extra options.
+     * Returns null for form types that do not expose a usable data_class, such as
+     * scalar or array forms.
      *
      * @return class-string|null
      */
     public function resolveDataClass(string $formTypeClass): ?string
     {
         try {
-            // Use the registry instead of instantiating the form type directly so options
+            // Use the registry instead of instantiating the form type directly, so options
             // are resolved with parent types and form type extensions.
-            $options = $this->formRegistry->getType($formTypeClass)->getOptionsResolver()->resolve([]);
+            $resolver = $this->formRegistry->getType($formTypeClass)->getOptionsResolver();
+            // Inspect only the data_class default instead of resolving all form options.
+            // Calling $resolver->resolve([]) would fail for form types that define unrelated
+            // required options, even if data_class itself is already set.
+            $inspector = new OptionsResolverIntrospector($resolver);
+            $dataClass = $inspector->getDefault('data_class');
         } catch (FormExceptionInterface|OptionsResolverExceptionInterface) {
             return null;
         }
-
-        $dataClass = $options['data_class'] ?? null;
 
         if (!is_string($dataClass) || '' === $dataClass || !class_exists($dataClass)) {
             return null;
