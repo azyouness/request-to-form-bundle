@@ -87,6 +87,7 @@ final readonly class RequestToFormArgumentListener
                 argumentType: $argumentType,
                 argumentName: $argumentName,
                 argumentValue: $arguments[$index],
+                argumentParameter: $parameter,
                 namedArguments: $this->createNamedArguments($parameters, $arguments),
             );
         }
@@ -119,6 +120,7 @@ final readonly class RequestToFormArgumentListener
         \ReflectionNamedType $argumentType,
         string $argumentName,
         mixed $argumentValue,
+        \ReflectionParameter $argumentParameter,
         array $namedArguments,
     ): mixed {
         $argumentTypeName = $argumentType->getName();
@@ -141,11 +143,14 @@ final readonly class RequestToFormArgumentListener
             validationFailedStatusCode: $attribute->validationFailedStatusCode,
         );
 
-        return $this->resolveArgumentValueFromForm(
-            $form,
-            $argumentType,
-            $argumentName,
+        $value = $this->resolveArgumentValueFromForm(
+            form: $form,
+            argumentType: $argumentType,
+            argumentName: $argumentName,
+            argumentParameter: $argumentParameter,
         );
+
+        return $value;
     }
 
     /**
@@ -155,6 +160,7 @@ final readonly class RequestToFormArgumentListener
         FormInterface $form,
         \ReflectionNamedType $argumentType,
         string $argumentName,
+        \ReflectionParameter $argumentParameter,
     ): mixed {
         $argumentTypeName = $argumentType->getName();
 
@@ -163,6 +169,10 @@ final readonly class RequestToFormArgumentListener
         }
 
         $formData = $form->getData();
+
+        if (null === $formData && $argumentParameter->isDefaultValueAvailable()) {
+            $formData = $argumentParameter->getDefaultValue();
+        }
 
         if ($this->typeMatcher->matches($formData, $argumentType)) {
             return $formData;

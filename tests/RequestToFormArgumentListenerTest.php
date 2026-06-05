@@ -192,6 +192,22 @@ final class RequestToFormArgumentListenerTest extends TestCase
     }
 
     #[Test]
+    public function mapsNullFormDataToDefaultArgumentValue(): void
+    {
+        $event = $this->createControllerArgumentsEvent(
+            [new ListenerTestRequestFormController(), 'nullFormDataToDefaultArgumentValue'],
+            arguments: [new PendingRequestToFormArgument()],
+            content: '{}'
+        );
+
+        $this->createListener()($event);
+        $post = $event->getArguments()[0];
+
+        $this->assertInstanceOf(ListenerTestNullableProduct::class, $post);
+        $this->assertSame('Default name', $post->name);
+    }
+
+    #[Test]
     public function throwsWhenMappedArgumentIsVariadic(): void
     {
         $event = $this->createControllerArgumentsEvent(
@@ -359,6 +375,12 @@ final class ListenerTestRequestFormController
     ): void {
     }
 
+    public function nullFormDataToDefaultArgumentValue(
+        #[MapRequestToForm]
+        ListenerTestNullableProduct $product = new ListenerTestNullableProduct(name: 'Default name'),
+    ): void {
+    }
+
     public function variadic(#[MapRequestToForm] ListenerTestProduct ...$products): void
     {
     }
@@ -385,6 +407,9 @@ final class ListenerTestOtherProduct
 
 final class ListenerTestNullableProduct
 {
+    public function __construct(public ?string $name = null)
+    {
+    }
 }
 
 /**
