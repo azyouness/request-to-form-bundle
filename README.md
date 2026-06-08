@@ -78,7 +78,7 @@ If the form type cannot be inferred or multiple form types use the same `data_cl
 use App\Form\PostType;
 
 public function create(
-    #[MapRequestToForm(formType: PostType::class)]
+    #[MapRequestToForm(PostType::class)]
     Post $post,
 ): JsonResponse {
     // ...
@@ -143,7 +143,7 @@ public function update(
 }
 ```
 
-For `PATCH` requests, missing fields are kept by default. For other methods, missing fields are cleared by default. You can override this behavior with `clearMissing`.
+For `PATCH` and `GET` query requests, missing fields are kept by default. For other methods, missing fields are cleared by default. You can override this behavior with `clearMissing`.
 
 ```php
 public function update(
@@ -165,7 +165,7 @@ use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 public function create(
-    #[MapRequestToForm(formType: PostType::class)]
+    #[MapRequestToForm(PostType::class)]
     FormInterface $form,
 ): JsonResponse {
     $post = $form->getData();
@@ -207,7 +207,7 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 public function rename(
-    #[MapRequestToForm(formType: TextType::class)]
+    #[MapRequestToForm(TextType::class)]
     string $title,
 ): JsonResponse {
     // $title is the submitted string.
@@ -218,16 +218,39 @@ public function rename(
 
 ## Supported Request Formats
 
-By default, both `json` and `form` request formats are accepted:
+By default, `json`, `form`, and `query` request formats are accepted:
 
 ```php
-#[MapRequestToForm(acceptFormat: ['json', 'form'])]
+#[MapRequestToForm(acceptFormat: ['json', 'form', 'query'])]
 ```
 
-Limit an action to JSON only:
+The supported formats are:
+
+- `json`: submits the decoded JSON request body.
+- `form`: submits request parameters and uploaded files, including `multipart/form-data`.
+- `query`: submits query parameters from `GET` requests.
+
+You can also limit an action to one format:
 
 ```php
 #[MapRequestToForm(acceptFormat: 'json')]
+```
+
+Example using the `query` format:
+
+```php
+use App\Form\PostQueryType;
+use AzYouness\RequestToFormBundle\Attribute\MapRequestToForm;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\Routing\Attribute\Route;
+
+#[Route('/posts', methods: ['GET'])]
+public function index(
+    #[MapRequestToForm(PostQueryType::class)]
+    array $query,
+): JsonResponse {
+    return $this->json($query);
+}
 ```
 
 ## Options
@@ -238,7 +261,7 @@ Limit an action to JSON only:
     dataArgument: 'post',
     formOptions: ['validation_groups' => ['Default', 'publish']],
     clearMissing: false,
-    acceptFormat: ['json', 'form'],
+    acceptFormat: ['json', 'form', 'query'],
     validationFailedStatusCode: 422,
 )]
 ```
@@ -251,8 +274,8 @@ The same options are available on the mapper service where they make sense.
 | `dataArgument` | attribute | Name of another controller argument to use as the form data. |
 | `data` | mapper | Initial form data. Use it to submit into an existing object. |
 | `formOptions` | attribute, mapper | Options passed to `FormFactoryInterface::create()`. |
-| `clearMissing` | attribute, mapper | Value passed to `FormInterface::submit()`. Defaults to `false` for `PATCH`, `true` otherwise. |
-| `acceptFormat` | attribute, mapper | Accepted request formats: `json`, `form`, or both. |
+| `clearMissing` | attribute, mapper | Value passed to `FormInterface::submit()`. Defaults to `false` for `PATCH` and `GET` query requests, `true` otherwise. |
+| `acceptFormat` | attribute, mapper | Accepted request formats: `json`, `form`, `query`, or a list of them. |
 | `throwOnInvalid` | mapper | Set to `false` to receive an invalid form instead of throwing. |
 | `validationFailedStatusCode` | attribute, mapper | HTTP status code used when validation fails. Default is `422`. |
 
