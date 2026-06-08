@@ -23,8 +23,6 @@ use Symfony\Component\HttpKernel\Exception\UnsupportedMediaTypeHttpException;
  */
 final readonly class RequestToFormMapper
 {
-    private const SUPPORTED_FORMATS = ['json', 'form'];
-
     public function __construct(
         private RequestStack $requestStack,
         private FormFactoryInterface $formFactory,
@@ -44,7 +42,7 @@ final readonly class RequestToFormMapper
         mixed $data = null,
         array $formOptions = [],
         ?bool $clearMissing = null,
-        array|string|null $acceptFormat = ['json', 'form'],
+        array|string|null $acceptFormat = RequestToFormFormat::ALL,
         bool $throwOnInvalid = true,
         int $validationFailedStatusCode = Response::HTTP_UNPROCESSABLE_ENTITY,
     ): FormInterface {
@@ -74,7 +72,7 @@ final readonly class RequestToFormMapper
         ?string $formType = null,
         array $formOptions = [],
         ?bool $clearMissing = null,
-        array|string|null $acceptFormat = self::SUPPORTED_FORMATS,
+        array|string|null $acceptFormat = RequestToFormFormat::ALL,
         bool $throwOnInvalid = true,
         int $validationFailedStatusCode = Response::HTTP_UNPROCESSABLE_ENTITY,
     ): FormInterface {
@@ -103,14 +101,14 @@ final readonly class RequestToFormMapper
      */
     private function resolveAcceptedFormats(array|string|null $acceptFormat): array
     {
-        $acceptedFormats = null === $acceptFormat ? self::SUPPORTED_FORMATS : (array) $acceptFormat;
-        $unsupportedFormats = array_diff($acceptedFormats, self::SUPPORTED_FORMATS);
+        $acceptedFormats = null === $acceptFormat ? RequestToFormFormat::ALL : (array) $acceptFormat;
+        $unsupportedFormats = array_diff($acceptedFormats, RequestToFormFormat::ALL);
 
         if ([] !== $unsupportedFormats) {
             $exceptionMessage = sprintf(
                 'Unsupported accepted format "%s". Supported formats are "%s".',
                 implode('", "', $unsupportedFormats),
-                implode('", "', self::SUPPORTED_FORMATS)
+                implode('", "', RequestToFormFormat::ALL)
             );
             throw new \LogicException($exceptionMessage);
         }
@@ -123,7 +121,7 @@ final readonly class RequestToFormMapper
      */
     private function resolveRequestFormat(Request $request, array $acceptedFormats): string
     {
-        $format = $request->getContentTypeFormat();
+        $format = $this->isQueryFormat($request) ? RequestToFormFormat::QUERY : $request->getContentTypeFormat();
 
         if (!in_array($format, $acceptedFormats, true)) {
             $exceptionMessage = sprintf(
@@ -146,21 +144,26 @@ final readonly class RequestToFormMapper
         ?bool $clearMissing,
         string $format,
     ): void {
-        $clearMissing ??= 'PATCH' !== $request->getMethod();
+        $clearMissing ??= $this->shouldClearMissing($request, $format);
 
-        if ('json' === $format) {
-            $form->submit($this->resolveJsonPayload($request), $clearMissing);
+        $payload = match ($format) {
+            RequestToFormFormat::QUERY => $request->query->all(),
+            RequestToFormFormat::JSON => $this->resolveJsonPayload($request),
+            RequestToFormFormat::FORM => $this->resolveFormPayload($form, $request),
+            default => throw new UnsupportedMediaTypeHttpException('Unsupported format.'),
+        };
 
-            return;
-        }
+        $form->submit($payload, $clearMissing);
+    }
 
-        if ('form' === $format) {
-            $form->submit($this->resolveFormPayload($form, $request), $clearMissing);
+    private function isQueryFormat(Request $request): bool
+    {
+        return $request->isMethod('GET');
+    }
 
-            return;
-        }
-
-        throw new UnsupportedMediaTypeHttpException('Unsupported format.');
+    private function shouldClearMissing(Request $request, string $format): bool
+    {
+        return RequestToFormFormat::QUERY !== $format && !$request->isMethod('PATCH');
     }
 
     private function resolveJsonPayload(Request $request): mixed

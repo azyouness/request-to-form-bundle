@@ -57,6 +57,20 @@ final class RequestToFormMapperTest extends TestCase
     }
 
     #[Test]
+    public function handlesJsonArrayPayload(): void
+    {
+        $form = $this->createMapper()->handle(
+            request: $this->createJsonRequest('{"keyword":"symfony","status":"published"}'),
+            formType: MapperSearchType::class,
+        );
+
+        $this->assertSame([
+            'keyword' => 'symfony',
+            'status' => 'published',
+        ], $form->getData());
+    }
+
+    #[Test]
     public function handlesFormPayload(): void
     {
         $request = new Request(
@@ -70,6 +84,20 @@ final class RequestToFormMapperTest extends TestCase
 
         $this->assertInstanceOf(MapperTestProduct::class, $product);
         $this->assertSame('Form product', $product->getName());
+    }
+
+    #[Test]
+    public function handlesGetQueryPayload(): void
+    {
+        $form = $this->createMapper()->handle(
+            request: $this->createQueryRequest(['name' => 'Query product']),
+            formType: MapperTestProductType::class,
+        );
+
+        $product = $form->getData();
+
+        $this->assertInstanceOf(MapperTestProduct::class, $product);
+        $this->assertSame('Query product', $product->getName());
     }
 
     #[Test]
@@ -117,6 +145,19 @@ final class RequestToFormMapperTest extends TestCase
     }
 
     #[Test]
+    public function throwsWhenQueryFormatIsNotAccepted(): void
+    {
+        $this->expectException(UnsupportedMediaTypeHttpException::class);
+        $this->expectExceptionMessage('Unsupported format');
+
+        $this->createMapper()->handle(
+            request: $this->createQueryRequest(['name' => 'Query product']),
+            formType: MapperTestProductType::class,
+            acceptFormat: 'json',
+        );
+    }
+
+    #[Test]
     public function throwsOnUnsupportedAcceptedFormat(): void
     {
         $this->expectException(\LogicException::class);
@@ -157,6 +198,21 @@ final class RequestToFormMapperTest extends TestCase
     }
 
     #[Test]
+    public function keepsMissingFieldsOnQueryByDefault(): void
+    {
+        $product = new MapperTestProduct();
+        $product->setName('Existing product');
+
+        $this->createMapper()->handle(
+            request: $this->createQueryRequest([]),
+            formType: MapperTestProductType::class,
+            data: $product,
+        );
+
+        $this->assertSame('Existing product', $product->getName());
+    }
+
+    #[Test]
     public function clearsMissingFieldsOnPutByDefault(): void
     {
         $product = new MapperTestProduct();
@@ -169,6 +225,23 @@ final class RequestToFormMapperTest extends TestCase
         );
 
         $this->assertNull($product->getName());
+    }
+
+    #[Test]
+    public function usesRequestBodyInsteadOfQueryPayloadForPostRequests(): void
+    {
+        $request = $this->createJsonRequest('{"name":"JSON product"}');
+        $request->query->set('name', 'Query product');
+
+        $form = $this->createMapper()->handle(
+            request: $request,
+            formType: MapperTestProductType::class,
+        );
+
+        $product = $form->getData();
+
+        $this->assertInstanceOf(MapperTestProduct::class, $product);
+        $this->assertSame('JSON product', $product->getName());
     }
 
     #[Test]
@@ -224,6 +297,7 @@ final class RequestToFormMapperTest extends TestCase
             ->addType(new MapperTestProductType())
             ->addType(new MapperValidatedProductType())
             ->addType(new MapperUploadType())
+            ->addType(new MapperSearchType())
             ->addExtension(new HttpFoundationExtension())
             ->addExtension(new ValidatorExtension(Validation::createValidator()))
             ->getFormFactory();
@@ -240,6 +314,17 @@ final class RequestToFormMapperTest extends TestCase
         return new Request(
             server: ['CONTENT_TYPE' => 'application/json', 'REQUEST_METHOD' => $method],
             content: $content
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $query
+     */
+    private function createQueryRequest(array $query): Request
+    {
+        return new Request(
+            query: $query,
+            server: ['REQUEST_METHOD' => 'GET']
         );
     }
 
@@ -345,6 +430,20 @@ final class MapperUploadData
     public function setUpload(?UploadedFile $upload): void
     {
         $this->upload = $upload;
+    }
+}
+
+/**
+ * @extends AbstractType<array<string, mixed>>
+ */
+final class MapperSearchType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options): void
+    {
+        $builder
+            ->add('keyword', TextType::class)
+            ->add('status', TextType::class)
+        ;
     }
 }
 

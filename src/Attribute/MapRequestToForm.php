@@ -2,6 +2,7 @@
 
 namespace AzYouness\RequestToFormBundle\Attribute;
 
+use AzYouness\RequestToFormBundle\RequestToFormFormat;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -18,14 +19,14 @@ final readonly class MapRequestToForm
      * @param class-string|null         $formType     Symfony form type class. If omitted, it is resolved from the data class when possible.
      * @param string|null               $dataArgument existing controller argument name to use as form data
      * @param array<string, mixed>      $formOptions  options passed to FormFactoryInterface::create()
-     * @param array<string>|string|null $acceptFormat Accepted request content formats, e.g. "json" or "form".
+     * @param array<string>|string|null $acceptFormat Accepted request content formats, e.g. "json", "form", or "query".
      */
     public function __construct(
         public readonly ?string $formType = null,
         public readonly ?string $dataArgument = null,
         public readonly array $formOptions = [],
         public readonly ?bool $clearMissing = null,
-        public readonly array|string|null $acceptFormat = ['json', 'form'],
+        public readonly array|string|null $acceptFormat = RequestToFormFormat::ALL,
         public readonly int $validationFailedStatusCode = Response::HTTP_UNPROCESSABLE_ENTITY,
     ) {
     }
