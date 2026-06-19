@@ -9,9 +9,9 @@ With `#[MapRequestToForm]`, the request payload is submitted to a form. If the f
 ```php
 use App\Entity\Post;
 use AzYouness\RequestToFormBundle\Attribute\MapRequestToForm;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
-use Doctrine\ORM\EntityManagerInterface;
 
 #[Route('/posts', methods: ['POST'])]
 public function create(
@@ -142,6 +142,32 @@ public function update(
     return $this->json($post);
 }
 ```
+
+For nested create endpoints, disable entity resolution on the new entity argument:
+
+```php
+use App\Entity\Comment;
+use App\Entity\Post;
+use AzYouness\RequestToFormBundle\Attribute\MapRequestToForm;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\Routing\Attribute\Route;
+
+#[Route('/posts/{id<\d+>}/comments', methods: ['POST'])]
+public function createComment(
+    Post $post,
+    #[MapEntity(disabled: true)]
+    #[MapRequestToForm]
+    Comment $comment,
+): JsonResponse {
+    // $post is resolved from the {id} route parameter.
+    // $comment is created from the request body through the form.
+
+    return $this->json($comment);
+}
+```
+
+Without `#[MapEntity(disabled: true)]`, Symfony may also try to resolve `Comment $comment` from the same `{id}` route parameter before the form is submitted.
 
 For `PATCH` and `GET` query requests, missing fields are kept by default. For other methods, missing fields are cleared by default. You can override this behavior with `clearMissing`.
 
